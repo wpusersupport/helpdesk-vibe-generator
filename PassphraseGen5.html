@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Helpdesk Vibe Passphrase Generator</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+``
+<style>
+  :root {
+    --bg: #f7f7f7;
+    --fg: #1c1c1c;
+    --card: #ffffff;
+    --accent: #002f6c;
+    --gold: #f2a900;
+  }
+
+  body.dark {
+    --bg: #0e1b2b;
+    --fg: #eef2f8;
+    --card: #13263f;
+    --accent: #6ba4ff;
+    --gold: #ffd166;
+  }
+
+  body {
+    background: linear-gradient(135deg, rgba(0,47,108,0.07), transparent), var(--bg);
+    color: var(--fg);
+    font-family: "Comic Neue", Arial, sans-serif;
+    padding: 24px;
+    transition: 0.25s;
+  }
+
+  h1 {
+    margin-top: 0;
+    color: var(--accent);
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 0.95em;
+    padding: 8px 14px;
+    margin: 4px;
+    background: var(--card);
+    color: var(--fg);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .card {
+    background: var(--card);
+    border-left: 6px solid var(--gold);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+  }
+
+  pre {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.15em;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  footer {
+    margin-top: 14px;
+    font-size: 0.85em;
+    opacity: 0.85;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>🎶 Helpdesk Vibe Generator</h1>
+
+<div>
+  <button onclick="generate('indie')">🎸 Indie / Alt</button>
+  <button onclick="generate('metal')">🤘 Metal</button>
+  <button onclick="generate('chill')">🌌 Chill</button>
+  <button onclick="generate('grizzly')">🐻 Grizzly</button>
+  <button onclick="generate('fun')">😄 Playful</button>
+  <button onclick="toggleDark()">🌙 Dark Mode</button>
+</div>
+
+<div class="card">
+  <pre id="output">Loading dictionaries…</pre>
+</div>
+
+<footer>
+  Band names that double as temporary passwords. Students must change them immediately.
+</footer>
+
+<script>
+/* ---------- DARK MODE ---------- */
+function toggleDark() {
+  document.body.classList.toggle("dark");
+  localStorage.setItem("vibeDark",
+    document.body.classList.contains("dark") ? "on" : "off"
+  );
+}
+if (localStorage.getItem("vibeDark") === "on") {
+  document.body.classList.add("dark");
+}
+
+/* ---------- CONFIG ---------- */
+const COUNT = 5;
+const MIN_LEN = 12;
+const DIGITS = "23456789";
+
+/* ---------- LARGE WORD LISTS ---------- */
+const ADJ_URL =
+  "https://raw.githubusercontent.com/david47k/top-english-wordlists/master/top_english_adjs_lower_10000.txt";
+const NOUN_URL =
+  "https://raw.githubusercontent.com/david47k/top-english-wordlists/master/top_english_nouns_lower_10000.txt";
+
+let ADJECTIVES = [];
+let NOUNS = [];
+
+/* ---------- LOAD WORDS ---------- */
+(async function loadWords() {
+  const [adjText, nounText] = await Promise.all([
+    fetch(ADJ_URL).then(r => r.text()),
+    fetch(NOUN_URL).then(r => r.text())
+  ]);
+
+  ADJECTIVES = adjText.split("\n").filter(w => w.length >= 4);
+  NOUNS = nounText.split("\n").filter(w => w.length >= 4);
+
+  generate("grizzly");
+})();
+
+/* ---------- VIBE FILTERS ---------- */
+const vibes = {
+  indie: {
+    adj: w => w.length >= 6 && !w.endsWith("ed"),
+    noun: w => w.length >= 5
+  },
+  metal: {
+    adj: w => w.includes("dark") || w.includes("iron") || w.includes("blood") || w.length >= 7,
+    noun: w => w.includes("storm") || w.includes("fire") || w.includes("steel") || w.length >= 6
+  },
+  chill: {
+    adj: w => w.endsWith("y") || w.endsWith("ent"),
+    noun: w => w.endsWith("n") || w.endsWith("e")
+  },
+  grizzly: {
+    adj: w => w.includes("north") || w.includes("wild") || w.includes("strong") || w.length >= 5,
+    noun: w => ["mountain","river","valley","trail","campus","wood"].some(k => w.includes(k))
+  },
+  fun: {
+    adj: w => w.endsWith("y") || w.endsWith("er"),
+    noun: w => w.length <= 7
+  }
+};
+
+/* ---------- UNIQUENESS ---------- */
+const counterKey = "vibeCounter";
+let counter = parseInt(localStorage.getItem(counterKey) || "1000", 10);
+
+function nextCounter() {
+  counter++;
+  localStorage.setItem(counterKey, counter.toString());
+  return counter.toString();
+}
+
+/* ---------- HELPERS ---------- */
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function cap(w) {
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+
+function ensureLength(s) {
+  while (s.length < MIN_LEN) {
+    s += DIGITS[Math.floor(Math.random() * DIGITS.length)];
+  }
+  return s;
+}
+
+/* ---------- GENERATE ---------- */
+function generate(vibe) {
+  if (!ADJECTIVES.length) return;
+
+  const af = ADJECTIVES.filter(vibes[vibe].adj);
+  const nf = NOUNS.filter(vibes[vibe].noun);
+
+  const out = [];
+  for (let i = 0; i < COUNT; i++) {
+    let adj, noun;
+    do {
+      adj = pick(af);
+      noun = pick(nf);
+    } while (adj === noun);
+
+    out.push(ensureLength(cap(adj) + cap(noun) + nextCounter()));
+  }
+
+  document.getElementById("output").textContent = out.join("\n");
+}
+</script>
+
+</body>
+</html>
+``
